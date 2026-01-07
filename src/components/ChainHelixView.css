@@ -1,0 +1,406 @@
+/* src/components/ChainHelixView.css */
+
+.helix-viewport {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #000;
+  z-index: 100;
+  -webkit-overflow-scrolling: touch;
+}
+
+.helix-background {
+  position: fixed;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+  pointer-events: none;
+  filter: brightness(1.0);
+}
+
+.scroll-depth {
+  width: 1px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Fixed Scene Container */
+.fixed-scene-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  z-index: 5;
+}
+
+/* UI Layer */
+.helix-ui-layer {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.back-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 10px 24px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.helix-title-overlay {
+  position: absolute;
+  top: 78px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 19;
+  pointer-events: none;
+  padding: 0 20px;
+}
+
+.chain-title {
+  font-family: "Radley", serif;
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  margin: 0;
+  color: white;
+  text-shadow: 0 5px 20px rgba(0, 0, 0, 0.85);
+  line-height: 1.1;
+}
+
+.scroll-hint {
+  margin-top: 8px;
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+/* Pillar */
+.helix-pillar-static {
+  position: absolute;
+  top: 0;
+  bottom: auto;
+  left: 50%;
+  height: var(--pillar-stretch, 160%);
+  width: 420px;
+  transform: translateX(-50%) translateY(var(--pillar-shift, 0px));
+  transform-origin: center top;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  opacity: 1;
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* 3D Stage */
+.helix-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.helix-spindle {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  z-index: 12;
+}
+
+.helix-card-anchor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+.clickable-card {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* ------------------------------
+   CARD (liquid glass) - EXACT FIGMA MATCH
+-------------------------------- */
+
+.asset-card {
+  width: var(--cardW, 326px);
+  height: var(--cardH, 240px);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  border-radius: 11px;
+  box-sizing: border-box;
+
+  /* "Liquid Glass Button - Light" Background properties */
+  background: 
+    linear-gradient(0deg, rgba(3, 13, 10, 0.3), rgba(3, 13, 10, 0.3)), 
+    radial-gradient(57.2% 57.2% at 13.35% 16.4%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+  
+  background-blend-mode: normal, plus-lighter;
+
+  /* The specific complex shadows from snippet */
+  box-shadow: 
+    0px 4px 24px rgba(0, 0, 0, 0.15), 
+    inset 3.17px 3.17px 0.53px -3.7px rgba(255, 255, 255, 0.5), 
+    inset -0.89px 2.11px 1.05px -2.11px #B3B3B3, 
+    inset -2.11px -2.11px 1.05px -2.11px #B3B3B3, 
+    inset 0px 0px 0px 1.05px #999999, 
+    inset 0px 0px 23.26px rgba(242, 242, 242, 0.5);
+
+  backdrop-filter: blur(13px);
+  -webkit-backdrop-filter: blur(13px);
+
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  isolation: isolate;
+}
+
+/* Top row */
+.asset-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px 0 20px;
+}
+
+.asset-top-left,
+.asset-top-right {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.asset-top-right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.asset-coinrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.asset-icon-shell {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #211A14;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.asset-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.asset-icon-fallback {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+}
+
+.asset-symbol {
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+  color: #FFFFFF;
+}
+
+.asset-amt {
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+
+.asset-amt-sym {
+  opacity: 0.95;
+}
+
+.asset-sub {
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: -0.03em;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+}
+
+/* Bottom chart area - MATCHING "Statistic" GROUP */
+.asset-bottom {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 18px 14px 18px;
+  z-index: 2;
+}
+
+/* chart wrapper */
+.asset-chart-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* The inner glass pane for the chart */
+.asset-chart-hit {
+  position: relative;
+  width: 100%;
+  height: 100px; /* Specific height from snippets (approx 102px) */
+  flex-grow: 1;
+  border-radius: 6px;
+  
+  /* Background from "Rectangle 2" snippet */
+  background: rgba(217, 217, 217, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+  
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.asset-chart-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Tooltip */
+.asset-chart-tooltip {
+  position: absolute;
+  transform: translate(-50%, -120%);
+  background: rgba(8, 8, 10, 0.92);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 80;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  white-space: nowrap;
+}
+
+.asset-chart-tooltip-price {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: "SF Pro Display", sans-serif;
+}
+
+.asset-chart-tooltip-date {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Range row - MATCHING THE "Text" GROUP */
+.asset-range-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  width: 100%;
+  height: 24px;
+}
+
+.asset-range-btn {
+  background: transparent;
+  border: none;
+  font-family: "Poppins", sans-serif; /* Per snippet */
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.asset-range-btn:hover {
+  color: #fff;
+}
+
+.asset-range-btn.active {
+  /* The Green pill effect from snippets */
+  background: rgba(86, 250, 154, 0.06);
+  border: 1px solid rgba(86, 250, 154, 0.08);
+  color: #FFFFFF;
+  font-weight: 600;
+  border-radius: 50px; /* Pill shape */
+  padding: 2px 8px;
+}
+
+/* Focus close button */
+.asset-focus-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.3);
+  color: rgba(255,255,255,0.8);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+}
+
+.asset-focus-close:hover {
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+}

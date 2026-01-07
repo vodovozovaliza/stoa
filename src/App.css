@@ -1,0 +1,1089 @@
+:root {
+  --bg-primary: #0a0a0f;
+  --text-primary: #ffffff;
+  --accent-primary: #8B5CF6;
+  --accent-secondary: #6366F1;
+
+  /* ------------------------------
+     Background / transition tuning
+     ------------------------------ */
+
+  --gate-scale: 2;                /* your Entering zoom (wall) */
+  --gate-door-scale: 2;           /* door_unlocked zoom (set to your old feel) */
+
+  --zoom52-scale: 1.9231;         /* 1 / 0.52 */
+  --zoom52-shift: 46.15%;         /* (S - 1)/2 */
+  --zoom52-shift-bottom: -46.15%;
+
+  --bg-zoom-duration: 1.5s;       /* chart bg zoom duration */
+  --diagram-reveal-delay: 0s;     /* you set this to 0 and it’s perfect */
+
+  /* Gate → Wall swap (while connecting) */
+  --gate-swap-duration: 0.95s;
+  --gate-swap-blur: 0px;
+  --gate-swap-zoom-bump: 1.07;    /* slight zoom-in during swap */
+}
+
+/* Base reset + center the "phone" on desktop WITHOUT transforms */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+* { box-sizing: border-box; }
+
+/* The container that mimics the mini app screen */
+.app-viewport {
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Desktop: constrain to mini-app frame (NO translate transform!) */
+@media (min-width: 768px) {
+  .app-viewport {
+    width: 424px;
+    height: 695px;
+    border: 1px solid #333;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+}
+
+/* Stage/view fill the viewport */
+.app-stage {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+/* IMPORTANT: keep overflow hidden here, but DO NOT transform this in normal mode */
+.app-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ------------------------------
+   Portfolio (chart / net) background
+   FINAL state: zoom to top 52% (fills screen, no black)
+-------------------------------- */
+
+.app-view.chart {
+  background: transparent;
+}
+
+/* Background image layer (final state) */
+.app-view.chart::after,
+.app-view.gallery::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  background-image: url("src/assets/wall.png");
+  background-size: cover;
+  background-position: center;   /* MUST match gate */
+  background-repeat: no-repeat;
+
+  transform: translateY(var(--zoom52-shift)) scale(var(--zoom52-scale));
+  transform-origin: center;
+
+  filter: blur(0px);
+
+  transition: transform 1.1s cubic-bezier(0.22, 1, 0.36, 1), background-position 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity, filter;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.app-view.gallery::after {
+  background-position: bottom center;
+  transform: translateY(var(--zoom52-shift-bottom)) scale(var(--zoom52-scale));
+}
+
+/* Smooth zoom on chart enter (this is your working zoom) */
+.app-view.chart.chart-bg-enter::after {
+  transform: scale(var(--gate-scale)); /* match gate wall */
+  transform-origin: center;
+  filter: blur(var(--gate-swap-blur)); /* match gate blur at handoff */
+  animation: bgZoomToTop52 var(--bg-zoom-duration) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes bgZoomToTop52 {
+  0% {
+    transform: scale(var(--gate-scale));
+    opacity: 1;
+    filter: blur(var(--gate-swap-blur));
+  }
+  100% {
+    transform: translateY(var(--zoom52-shift)) scale(var(--zoom52-scale));
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+/* Optional: dark overlay so text/UI stays readable on top of the image */
+.app-view.chart::before,
+.app-view.gallery::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.10);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.app-view.gallery::before {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Ensure your content sits above the overlay */
+.app-view.chart > *,
+.app-view.gallery > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* IMPORTANT:
+   Hide chart content (diagram/UI) until the door zoom is almost done */
+.app-view.chart.chart-bg-enter > * {
+  opacity: 0;
+  animation: chartContentReveal 0.35s ease-out forwards;
+  animation-delay: var(--diagram-reveal-delay);
+}
+
+@keyframes chartContentReveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* This container must be able to host helix (absolute) cleanly */
+.dashboard-reveal-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Wheel zoom */
+.zooming .wheel-stage {
+  transform: scale(8);
+  opacity: 0;
+  transition: transform 0.8s cubic-bezier(0.7, 0, 0.3, 1), opacity 0.4s ease-out;
+  pointer-events: none;
+  top: 55%;
+}
+
+/* ------------------------------
+   Dashboard layout: wheel centered
+-------------------------------- */
+
+.dashboard {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-pages {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 200%;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(0);
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.dashboard-pages.show-gallery {
+  transform: translateY(-50%);
+}
+
+.dashboard-page {
+  position: relative;
+  flex: 0 0 50%;
+  width: 100%;
+  height: 50%;
+}
+
+.gallery-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  padding: 90px 20px 40px;
+  text-align: center;
+  color: #fff;
+}
+
+.gallery-header {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.gallery-back-btn {
+  justify-self: start;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.gallery-back-btn:hover {
+  transform: translateY(-1px);
+}
+
+.gallery-title {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.gallery-subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.gallery-panel {
+  width: min(90%, 360px);
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.gallery-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.gallery-panel-subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.user-bar {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 20px 16px 0 16px;
+  color: #a1a1b5;
+
+  z-index: 5;
+}
+
+.wheel-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  width: 75%;
+  height: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-btn {
+  background: none;
+  border: 1px solid #333;
+  color: #a1a1b5;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Hub view */
+.hub-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: hubFadeIn 0.5s ease-out;
+}
+
+.hub-container h1 {
+  font-size: 3rem;
+  margin-bottom: 40px;
+  letter-spacing: 10px;
+}
+
+.hub-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.hub-action-btn {
+  width: 320px;
+  padding: 24px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid #8B5CF6;
+  border-radius: 16px;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.hub-action-btn:hover {
+  background: #8B5CF6;
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4);
+}
+
+.back-link {
+  background: none;
+  border: none;
+  color: #a1a1b5;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.back-link:hover { color: white; text-decoration: underline; }
+
+@keyframes hubFadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* AssetWheel additions (kept) */
+.hub-center-group { cursor: pointer; transition: transform 0.2s; }
+.hub-center-group:hover { transform: scale(1.1); }
+.hub-center-bg { filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.5)); }
+.hub-text {
+  fill: #8B5CF6;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+
+/* ---------------- GATE SYSTEM ---------------- */
+
+.castle-gate-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  overflow: hidden;
+  pointer-events: auto;
+
+  background: #5C5D48;
+}
+
+/* Two explicit background layers:
+   - Door shown while not authenticated
+   - Wall fades in (blurred + zoom) when authenticated
+*/
+.gate-bg {
+  position: absolute;
+  inset: 0;
+
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  transform-origin: center;
+  will-change: transform, opacity, filter;
+  pointer-events: none;
+  z-index: 0;
+
+  transition:
+    opacity var(--gate-swap-duration) ease,
+    transform var(--gate-swap-duration) cubic-bezier(0.22, 1, 0.36, 1),
+    filter var(--gate-swap-duration) ease;
+}
+
+/* Door: default visible */
+.gate-bg-door {
+  background-image: url("src/assets/door_unlocked.png");
+  background-position: center top; /* keep like before; change to center top if you prefer */
+  opacity: 1;
+  filter: blur(0px);
+  background-size: cover;
+}
+
+/* Wall: default hidden */
+.gate-bg-wall {
+  background-image: url("src/assets/wall.png");
+  background-position: center; /* MUST match chart */
+  opacity: 0;
+  transform: scale(calc(var(--gate-scale) / var(--gate-swap-zoom-bump)));
+  filter: blur(var(--gate-swap-blur));
+}
+
+/* Dark overlay (kept) */
+.gate-dim {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.08);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* When authenticated: blur + zoom + crossfade door → wall */
+.castle-gate-container.is-authenticated .gate-bg-door {
+  opacity: 0;
+  transform: scale(calc(var(--gate-door-scale) * var(--gate-swap-zoom-bump)));
+  filter: blur(var(--gate-swap-blur));
+}
+
+.castle-gate-container.is-authenticated .gate-bg-wall {
+  opacity: 1;
+  transform: scale(var(--gate-scale));
+  filter: blur(var(--gate-swap-blur));
+}
+
+/* Bottom gradient */
+.gate-bottom-gradient {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+
+  width: 110%;
+  height: 52%;
+
+  background: linear-gradient(180deg, rgba(22, 16, 10, 0) 0%, rgba(22, 16, 10, 0.6) 100%);
+  backdrop-filter: blur(2px);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Content wrapper */
+.gate-frame37 {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+
+  width: 325px;
+  padding: 40px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+
+  z-index: 3;
+}
+
+.gate-frame35 {
+  width: 325px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.gate-welcome-title {
+  width: 325px;
+  margin: 0;
+
+  font-family: "Radley", ui-serif, Georgia, serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 105%;
+  text-align: center;
+  letter-spacing: -0.04em;
+  color: #FFFFFF;
+}
+
+.gate-welcome-subtitle {
+  width: 296px;
+  margin: 0;
+
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 140%;
+  text-align: center;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.gate-connect-btn {
+  width: 325px;
+  height: 50px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 15px 20px;
+  gap: 11px;
+
+  background: #FFFFFF;
+  box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.09);
+  border-radius: 8px;
+
+  border: none;
+  cursor: pointer;
+
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 20px;
+  text-align: center;
+  color: #000000;
+}
+
+.gate-connect-btn:active {
+  transform: translateY(1px);
+}
+
+.gate-enter-hint {
+  width: 325px;
+  height: 50px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.88);
+
+  user-select: none;
+}
+
+.gate-pagination {
+  width: 70px;
+  height: 5px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.gate-pill-active {
+  width: 32px;
+  height: 5px;
+  background: #FFFFFF;
+  border-radius: 50px;
+}
+
+.gate-pill {
+  width: 13px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50px;
+}
+
+/* Hide old gate panels/content (no longer used visually) */
+.gate-panel,
+.gate-content,
+.gate-title,
+.gate-subtitle,
+.rune-button,
+.activation-hint {
+  display: none !important;
+}
+
+/* ------------------------------
+   Performance pill / user info
+-------------------------------- */
+
+.perf-pill {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 14px;
+  border-radius: 30px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  backdrop-filter: blur(10px);
+}
+
+.dollar-change {
+  font-size: 0.7rem;
+  margin-left: 6px;
+  opacity: 0.8;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.perf-up {
+  color: #14F195;
+  text-shadow: 0 0 10px rgba(20, 241, 149, 0.3);
+}
+
+.perf-down {
+  color: #FF4D4D;
+  text-shadow: 0 0 10px rgba(255, 77, 77, 0.3);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ------------------------------
+   Send modal
+-------------------------------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-card {
+  width: min(560px, calc(100vw - 32px));
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 10, 15, 0.92);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(14px);
+  padding: 16px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.modal-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.modal-body {
+  display: grid;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.field-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+  color: rgba(255, 255, 255, 0.9);
+  outline: none;
+}
+
+.field-input:focus {
+  border-color: rgba(139, 92, 246, 0.65);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+}
+
+.field-error {
+  border-color: rgba(255, 77, 77, 0.65);
+}
+
+.field-help {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.field-help.error {
+  color: rgba(255, 77, 77, 0.85);
+}
+
+.amount-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.max-btn {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.max-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.max-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.secondary-btn,
+.primary-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 10px 24px;
+  color: white;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.primary-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.primary-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.primary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Portfolio header (Frame 35) */
+.portfolio-header {
+  position: absolute;
+  left: 32.5px;
+  top: 39px;
+  width: 325px;
+  height: 73px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  gap: 10px;
+
+  z-index: 10;
+}
+
+/* "Portfolio" */
+.portfolio-title {
+  width: 325px;
+  height: 40px;
+  margin: 0;
+
+  font-family: "Radley", ui-serif, Georgia, serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 36px;
+  line-height: 110%;
+  letter-spacing: -0.04em;
+
+  color: #ffffff;
+}
+
+/* Subtitle is hidden per spec */
+.portfolio-subtitle {
+  display: none;
+}
+
+/* Frame 13 (row) */
+.portfolio-metrics {
+  width: 161px;
+  height: 23px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0;
+  gap: 11px;
+}
+
+/* $1,322.80 */
+.portfolio-value {
+  width: 77px;
+  height: 21px;
+
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 21px;
+  text-align: center;
+  letter-spacing: -0.03em;
+
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Frame 1 (pill) */
+.portfolio-pill {
+  box-sizing: border-box;
+
+  width: 73px;
+  height: 23px;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+
+  padding: 1px 7px;
+  gap: 3px;
+
+  background: rgba(86, 250, 154, 0.06);
+  border: 1px solid rgba(86, 250, 154, 0.08);
+  border-radius: 50px;
+}
+
+/* +$140.50 */
+.portfolio-pill-text {
+  width: 59px;
+  height: 21px;
+
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 21px;
+  text-align: center;
+  letter-spacing: -0.03em;
+
+  color: #56fa9a;
+}
+
+/* If negative, switch colors */
+.portfolio-pill.negative {
+  background: rgba(255, 77, 77, 0.06);
+  border: 1px solid rgba(255, 77, 77, 0.10);
+}
+
+.portfolio-pill.negative .portfolio-pill-text {
+  color: #ff4d4d;
+}
+
+/* Liquid Glass Button - Light (top-right) */
+.glass-account-btn {
+  box-sizing: border-box;
+  position: absolute;
+  width: 45.4px;
+  height: 46px;
+  right: 25px;
+  top: 43px;
+
+  background: rgba(255, 255, 255, 0.07);
+  background-blend-mode: plus-lighter;
+  box-shadow:
+    inset 0px 0px 0px 0.842181px #999999,
+    inset 0px 0px 18.528px rgba(242, 242, 242, 0.5);
+  backdrop-filter: blur(12.3304px);
+  -webkit-backdrop-filter: blur(12.3304px);
+
+  border-radius: 198.881px;
+  border: none;
+  cursor: pointer;
+
+  display: grid;
+  place-items: center;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 20;
+}
+
+.glass-account-btn:active {
+  transform: translateY(1px);
+}
+
+/* "A" label inside */
+.glass-account-btn .glass-account-letter {
+  margin: 0;
+  padding: 0;
+
+  font-family: "Radley", ui-serif, Georgia, serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 20.6238px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+
+  color: rgba(255, 255, 255, 0.8);
+
+  transform: translateX(-0.4px) translateY(0.2px);
+}
+
+/* Small glass widget popover */
+.glass-account-popover {
+  position: absolute;
+  right: 25px;
+  top: 95px;
+  width: 220px;
+
+  padding: 12px;
+  border-radius: 16px;
+
+  background: rgba(255, 255, 255, 0.07);
+  background-blend-mode: plus-lighter;
+  box-shadow:
+    inset 0px 0px 0px 0.842181px rgba(153, 153, 153, 0.7),
+    inset 0px 0px 18.528px rgba(242, 242, 242, 0.35),
+    0px 10px 30px rgba(0, 0, 0, 0.35);
+
+  backdrop-filter: blur(12.3304px);
+  -webkit-backdrop-filter: blur(12.3304px);
+
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  z-index: 30;
+}
+
+/* Address label */
+.glass-account-title {
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 6px;
+}
+
+/* Address box */
+.glass-account-address {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
+
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+
+  padding: 8px 10px;
+  word-break: break-all;
+  margin-bottom: 10px;
+}
+
+/* Logout button inside widget */
+.glass-account-logout {
+  width: 100%;
+  height: 36px;
+
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+
+  cursor: pointer;
+}
+
+.glass-account-logout:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Optional: click-away overlay so it closes when tapping outside */
+.glass-account-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+}
+
+.helix-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+}
+
+.helix-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: transparent;
+}

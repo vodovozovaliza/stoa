@@ -1,0 +1,16 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOiA4Njk5OTksICJ0eXBlIjogImN1c3RvZHkiLCAia2V5IjogIjB4N...your_signing_key..."
+  },
+  "frame": {
+    "version": "1",
+    "name": "Stoa Portfolio",
+    "iconUrl": "https://your-vercel-url.com/icon.png",
+    "homeUrl": "https://your-vercel-url.com",
+    "imageUrl": "https://your-vercel-url.com/og-image.png",
+    "buttonTitle": "Open Stoa",
+    "splashImageUrl": "https://your-vercel-url.com/splash.png",
+    "splashBackgroundColor": "#0a0a0f",
+    "webhookUrl": "https://your-vercel-url.com/api/webhook"
+  }
+}
