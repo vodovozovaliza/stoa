@@ -3,9 +3,6 @@ import React, { useState, useEffect, useRef, useMemo, CSSProperties } from "reac
 import "./ChainHelixView.css";
 import type { WalletMeta } from "./AssetWheel";
 
-import backgroundImg from "../assets/background.png";
-import pillarImg from "../assets/pillar.png";
-
 const LLAMA_MAP: Record<string, string> = {
   ETH: "coingecko:ethereum",
   USDC: "coingecko:usd-coin",
@@ -501,7 +498,7 @@ export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
     <div className="helix-viewport" ref={viewportRef}>
       <div
         className="helix-background"
-        style={{ backgroundImage: `url(${backgroundImg})` }}
+        style={{ backgroundImage: `url(/assets/background.png)` }}
         aria-hidden
       />
       <div
@@ -512,7 +509,7 @@ export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
       <div className="fixed-scene-container">
         <img
           className="helix-pillar-static"
-          src={pillarImg}
+          src="/assets/pillar.png"
           alt=""
           aria-hidden
           style={

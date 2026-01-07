@@ -95,7 +95,7 @@ html, body, #root {
   position: absolute;
   inset: 0;
 
-  background-image: url("src/assets/wall.png");
+  background-image: url("/assets/wall.png");
   background-size: cover;
   background-position: center;   /* MUST match gate */
   background-repeat: no-repeat;
@@ -433,7 +433,7 @@ html, body, #root {
 
 /* Door: default visible */
 .gate-bg-door {
-  background-image: url("src/assets/door_unlocked.png");
+  background-image: url("/assets/door_unlocked.png");
   background-position: center top; /* keep like before; change to center top if you prefer */
   opacity: 1;
   filter: blur(0px);
@@ -442,7 +442,7 @@ html, body, #root {
 
 /* Wall: default hidden */
 .gate-bg-wall {
-  background-image: url("src/assets/wall.png");
+  background-image: url("/assets/wall.png");
   background-position: center; /* MUST match chart */
   opacity: 0;
   transform: scale(calc(var(--gate-scale) / var(--gate-swap-zoom-bump)));
