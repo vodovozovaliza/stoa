@@ -3,30 +3,34 @@ import { Delaunay } from "d3-delaunay";
 import "./AssetWheel.css";
 
 const CHAIN_COLORS: Record<string, string> = {
-  Solana: "rgba(99, 99, 53, 0.30)", 
+  Solana: "rgba(99, 99, 53, 0.30)",
   Arbitrum: "rgba(39, 92, 101, 0.30)",
-  "Soneium Minato": "rgba(101, 41, 39, 0.30)", 
-  Soneium: "rgba(39, 49, 101, 0.30)", 
-  Ethereum: "rgba(39, 101, 84, 0.30)", 
+  "Soneium Minato": "rgba(101, 41, 39, 0.30)",
+  Soneium: "rgba(39, 49, 101, 0.30)",
+  Ethereum: "rgba(39, 101, 84, 0.30)",
 };
 
 const CHAIN_LOGOS: Record<string, string> = {
   Ethereum: "https://cryptologos.cc/logos/ethereum-eth-logo.png?v=026",
   Solana: "https://cryptologos.cc/logos/solana-sol-logo.png?v=026",
   Arbitrum: "https://cryptologos.cc/logos/arbitrum-arb-logo.png?v=026",
-  Soneium: "https://raw.githubusercontent.com/Soneium/soneium-examples/main/apps/dapp-wagmi-rainbowkit/public/symbol-full-color.svg",
-  "Soneium Minato": "https://raw.githubusercontent.com/Soneium/soneium-examples/main/apps/dapp-wagmi-rainbowkit/public/symbol-full-color.svg",
+  Soneium:
+    "https://raw.githubusercontent.com/Soneium/soneium-examples/main/apps/dapp-wagmi-rainbowkit/public/symbol-full-color.svg",
+  "Soneium Minato":
+    "https://raw.githubusercontent.com/Soneium/soneium-examples/main/apps/dapp-wagmi-rainbowkit/public/symbol-full-color.svg",
 };
 
 export type WalletData = { [chain: string]: Record<string, number> };
-export type WalletMeta = { [chain: string]: { [symbol: string]: { logoUrl?: string; name?: string; }; }; };
+export type WalletMeta = {
+  [chain: string]: { [symbol: string]: { logoUrl?: string; name?: string } };
+};
 export type WalletUsd = { [chain: string]: Record<string, number> };
 
 const RADIUS = 200;
 const INNER_HUB_RADIUS = 45;
-const OUT_LINE_LEN = 14; 
-const OUT_LOGO_GAP = 18; 
-const CHAIN_LOGO_SIZE = 40; 
+const OUT_LINE_LEN = 14;
+const OUT_LOGO_GAP = 18;
+const CHAIN_LOGO_SIZE = 40;
 
 function fmtUsdCompact(v: number): string {
   return `$${v.toLocaleString(undefined, { notation: "compact", maximumFractionDigits: 2 })}`;
@@ -63,13 +67,6 @@ function mulberry32(seed: number) {
   };
 }
 
-function randNormal(rng: () => number): number {
-  let u = 0, v = 0;
-  while (u === 0) u = rng();
-  while (v === 0) v = rng();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
-
 function samplePointInCircle(rng: () => number, r: number, inset: number = 0): Pt {
   const rr = Math.max(1e-6, r - inset);
   const theta = rng() * 2 * Math.PI;
@@ -96,7 +93,8 @@ function polygonCentroid(poly: Pt[]): Pt {
   const n = poly.length;
   if (n === 0) return [0, 0];
   const a = polygonArea(poly);
-  let cx = 0, cy = 0;
+  let cx = 0,
+    cy = 0;
   for (let i = 0; i < n; i++) {
     const [x1, y1] = poly[i];
     const [x2, y2] = poly[(i + 1) % n];
@@ -124,15 +122,27 @@ function makeCirclePolygon(r: number, segments: number): Pt[] {
   return pts;
 }
 
-function cross(ax: number, ay: number, bx: number, by: number) { return ax * by - ay * bx; }
+function cross(ax: number, ay: number, bx: number, by: number) {
+  return ax * by - ay * bx;
+}
 
-function isInsideClip(p: Pt, a: Pt, b: Pt) { return cross(b[0] - a[0], b[1] - a[1], p[0] - a[0], p[1] - a[1]) >= 0; }
+function isInsideClip(p: Pt, a: Pt, b: Pt) {
+  return cross(b[0] - a[0], b[1] - a[1], p[0] - a[0], p[1] - a[1]) >= 0;
+}
 
 function lineIntersection(p: Pt, q: Pt, a: Pt, b: Pt): Pt {
-  const px = p[0], py = p[1], qx = q[0], qy = q[1];
-  const ax = a[0], ay = a[1], bx = b[0], by = b[1];
-  const r1x = qx - px, r1y = qy - py;
-  const r2x = bx - ax, r2y = by - ay;
+  const px = p[0],
+    py = p[1],
+    qx = q[0],
+    qy = q[1];
+  const ax = a[0],
+    ay = a[1],
+    bx = b[0],
+    by = b[1];
+  const r1x = qx - px,
+    r1y = qy - py;
+  const r2x = bx - ax,
+    r2y = by - ay;
   const denom = cross(r1x, r1y, r2x, r2y);
   if (Math.abs(denom) < 1e-12) return q;
   const t = cross(ax - px, ay - py, r2x, r2y) / denom;
@@ -143,14 +153,20 @@ function clipConvexPolygon(subjectIn: Pt[], clipperIn: Pt[]): Pt[] {
   let subject = subjectIn.slice();
   const clipper = ensureCCW(clipperIn.slice());
   for (let i = 0; i < clipper.length; i++) {
-    const a = clipper[i], b = clipper[(i + 1) % clipper.length];
+    const a = clipper[i],
+      b = clipper[(i + 1) % clipper.length];
     const output: Pt[] = [];
     for (let j = 0; j < subject.length; j++) {
-      const p = subject[j], q = subject[(j + 1) % subject.length];
-      const pin = isInsideClip(p, a, b), qin = isInsideClip(q, a, b);
+      const p = subject[j],
+        q = subject[(j + 1) % subject.length];
+      const pin = isInsideClip(p, a, b),
+        qin = isInsideClip(q, a, b);
       if (pin && qin) output.push(q);
       else if (pin && !qin) output.push(lineIntersection(p, q, a, b));
-      else if (!pin && qin) { output.push(lineIntersection(p, q, a, b)); output.push(q); }
+      else if (!pin && qin) {
+        output.push(lineIntersection(p, q, a, b));
+        output.push(q);
+      }
     }
     subject = output;
   }
@@ -159,7 +175,8 @@ function clipConvexPolygon(subjectIn: Pt[], clipperIn: Pt[]): Pt[] {
 
 function pointInConvex(polyCCW: Pt[], p: Pt): boolean {
   for (let i = 0; i < polyCCW.length; i++) {
-    const a = polyCCW[i], b = polyCCW[(i + 1) % polyCCW.length];
+    const a = polyCCW[i],
+      b = polyCCW[(i + 1) % polyCCW.length];
     if (!isInsideClip(p, a, b)) return false;
   }
   return true;
@@ -174,20 +191,27 @@ function toPtArray(poly: any): Pt[] {
 
 function norm(x: number, y: number) {
   const d = Math.hypot(x, y);
-  return d < 1e-9 ? [1, 0] as const : [x / d, y / d] as const;
+  return d < 1e-9 ? ([1, 0] as const) : ([x / d, y / d] as const);
 }
 
 // -------------------------------
 // Voronoi Builder
 // -------------------------------
-type TokenShard = { chainName: string; label: string; amount: number; color: string; poly: Pt[]; centroid: Pt; };
+type TokenShard = {
+  chainName: string;
+  label: string;
+  amount: number;
+  color: string;
+  poly: Pt[];
+  centroid: Pt;
+  areaAbs: number; // used for logo/label sorting within chain
+};
 type ChainLabel = { name: string; x: number; y: number };
 type TokenEntry = { sym: string; amt: number; weight: number };
 
 function computeSmartWeights(chainName: string, tokens: [string, number][], walletUsd?: WalletUsd): TokenEntry[] {
-  // 1. First pass: separate priced vs unpriced
   const priced: number[] = [];
-  
+
   const temp = tokens.map(([sym, amt]) => {
     const usd = walletUsd?.[chainName]?.[sym];
     const hasPrice = typeof usd === "number" && Number.isFinite(usd) && usd > 0;
@@ -195,21 +219,17 @@ function computeSmartWeights(chainName: string, tokens: [string, number][], wall
     return { sym, amt, usd: hasPrice ? usd : 0, hasPrice };
   });
 
-  // 2. Calculate fallback weight (Median of priced assets, or a solid default if none exist)
-  let fallbackWeight = 25; // Increased default weight for visibility
+  let fallbackWeight = 25;
   if (priced.length > 0) {
     priced.sort((a, b) => a - b);
-    fallbackWeight = priced[Math.floor(priced.length / 2)]; 
-    // Don't let fallback be too tiny if median is tiny
-    if (fallbackWeight < 5) fallbackWeight = 5; 
+    fallbackWeight = priced[Math.floor(priced.length / 2)];
+    if (fallbackWeight < 5) fallbackWeight = 5;
   }
 
-  // 3. Assign weights
-  return temp.map(t => ({
+  return temp.map((t) => ({
     sym: t.sym,
     amt: t.amt,
-    // If it has a price, use it. If not, use the fallback visual weight.
-    weight: t.hasPrice ? t.usd : fallbackWeight 
+    weight: t.hasPrice ? t.usd : fallbackWeight,
   }));
 }
 
@@ -218,7 +238,9 @@ function buildVoronoiWalletDiagram(
   chainColors: Record<string, string>,
   walletUsd?: WalletUsd
 ): { tokenShards: TokenShard[]; chainLabels: ChainLabel[] } {
-  const seedBase = 0, maxSeedSearch = 80, circleSegments = 160;
+  const seedBase = 0,
+    maxSeedSearch = 80,
+    circleSegments = 160;
   const R = RADIUS;
   const circlePoly = makeCirclePolygon(R, circleSegments);
   const circleArea = Math.PI * R * R;
@@ -235,7 +257,8 @@ function buildVoronoiWalletDiagram(
   if (nChains === 0) return { tokenShards: [], chainLabels: [] };
 
   // --- 1. Chain Cells ---
-  let bestCoverage = -1, bestSeeds: Pt[] = [], bestCells = new Map<string, Pt[]>();
+  let bestCoverage = -1,
+    bestCells = new Map<string, Pt[]>();
   for (let s = 0; s < maxSeedSearch; s++) {
     const rng = mulberry32(seedBase + s);
     const seeds: Pt[] = [];
@@ -255,7 +278,6 @@ function buildVoronoiWalletDiagram(
     }
     if (sumArea / circleArea > bestCoverage) {
       bestCoverage = sumArea / circleArea;
-      bestSeeds = seeds;
       bestCells = cells;
       if (bestCoverage >= 0.995) break;
     }
@@ -277,33 +299,36 @@ function buildVoronoiWalletDiagram(
     // Generate Points inside Chain Cell
     const rng = mulberry32(seedBase + 10000 + i);
     const coinPts: Pt[] = [];
-    
-    // Generate exactly as many points as we have tokens
+
+    // Bounding box precompute once
+    let minx = 1e9,
+      miny = 1e9,
+      maxx = -1e9,
+      maxy = -1e9;
+    for (const [x, y] of cell) {
+      minx = Math.min(minx, x);
+      miny = Math.min(miny, y);
+      maxx = Math.max(maxx, x);
+      maxy = Math.max(maxy, y);
+    }
+
     for (let k = 0; k < rawTokens.length; k++) {
       let pt: Pt | null = null;
-      // Random sampling within bounding box until inside poly
-      let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
-      for (const [x, y] of cell) {
-        minx = Math.min(minx, x); miny = Math.min(miny, y);
-        maxx = Math.max(maxx, x); maxy = Math.max(maxy, y);
-      }
       let safety = 0;
       while (!pt && safety++ < 1000) {
         const cand: Pt = [minx + (maxx - minx) * rng(), miny + (maxy - miny) * rng()];
         if (pointInConvex(cell, cand)) pt = cand;
       }
-      
+
       if (!pt) {
-        // CRITICAL FIX: Add jitter to fallback.
-        // If we use the exact centroid for multiple failures, Delaunay creates degenerate/missing cells.
         const jitterAngle = rng() * Math.PI * 2;
-        const jitterDist = 0.5 + rng() * 2.0; 
+        const jitterDist = 0.5 + rng() * 2.0;
         pt = [
-            chainCentroid[0] + Math.cos(jitterAngle) * jitterDist,
-            chainCentroid[1] + Math.sin(jitterAngle) * jitterDist
+          chainCentroid[0] + Math.cos(jitterAngle) * jitterDist,
+          chainCentroid[1] + Math.sin(jitterAngle) * jitterDist,
         ];
       }
-      
+
       coinPts.push(pt);
     }
 
@@ -313,7 +338,6 @@ function buildVoronoiWalletDiagram(
     for (let k = 0; k < rawTokens.length; k++) {
       const raw = toPtArray(coinVor.cellPolygon(k));
       const clipped = clipConvexPolygon(raw, cell);
-      // We accept even smaller polygons now
       if (clipped.length > 2) {
         shardCells.push({
           poly: clipped,
@@ -326,8 +350,7 @@ function buildVoronoiWalletDiagram(
     // Sort by area to assign largest cells to largest weighted tokens
     shardCells.sort((a, b) => b.areaAbs - a.areaAbs);
 
-    const tokensSorted = computeSmartWeights(chainName, rawTokens, walletUsd)
-      .sort((a, b) => b.weight - a.weight);
+    const tokensSorted = computeSmartWeights(chainName, rawTokens, walletUsd).sort((a, b) => b.weight - a.weight);
 
     const nAssign = Math.min(tokensSorted.length, shardCells.length);
     const color = chainColors[chainName] ?? "rgba(153,153,153,0.30)";
@@ -340,6 +363,7 @@ function buildVoronoiWalletDiagram(
         color,
         poly: shardCells[idx].poly,
         centroid: shardCells[idx].centroid,
+        areaAbs: shardCells[idx].areaAbs, 
       });
     }
   }
@@ -358,12 +382,24 @@ function TokenIcon({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
   return <img src={logoUrl} className="icon-img" onError={() => setFailed(true)} />;
 }
 
-function ChainPointerIcon({ chainName, logoUrl, size }: { chainName: string; logoUrl?: string; size: number; }) {
+function ChainPointerIcon({ chainName, logoUrl, size }: { chainName: string; logoUrl?: string; size: number }) {
   const letter = (chainName?.trim?.()?.[0] ?? "?").toUpperCase();
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [logoUrl, chainName]);
-  if (!logoUrl || failed) return <div className="chain-pointer-fallback" style={{ width: size, height: size }}>{letter}</div>;
-  return <img src={logoUrl} className="chain-pointer-img" style={{ width: size, height: size }} onError={() => setFailed(true)} />;
+  if (!logoUrl || failed)
+    return (
+      <div className="chain-pointer-fallback" style={{ width: size, height: size }}>
+        {letter}
+      </div>
+    );
+  return (
+    <img
+      src={logoUrl}
+      className="chain-pointer-img"
+      style={{ width: size, height: size }}
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 interface AssetWheelProps {
@@ -374,7 +410,13 @@ interface AssetWheelProps {
   onHubClick: () => void;
 }
 
-export const AssetWheel: React.FC<AssetWheelProps> = ({ walletData, walletMeta, walletUsd, onTokenClick, onHubClick }) => {
+export const AssetWheel: React.FC<AssetWheelProps> = ({
+  walletData,
+  walletMeta,
+  walletUsd,
+  onTokenClick,
+  onHubClick,
+}) => {
   const globalSymbolLogo = useMemo(() => {
     const g: Record<string, string> = {};
     if (!walletMeta) return g;
@@ -387,31 +429,69 @@ export const AssetWheel: React.FC<AssetWheelProps> = ({ walletData, walletMeta, 
     return g;
   }, [walletMeta]);
 
-  const resolveLogoUrl = (chainName: string, symbol: string) => 
+  const resolveLogoUrl = (chainName: string, symbol: string) =>
     walletMeta?.[chainName]?.[symbol]?.logoUrl ?? globalSymbolLogo[symbol];
 
-  const { tokenShards, chainLabels } = useMemo(() => 
-    buildVoronoiWalletDiagram(walletData, CHAIN_COLORS, walletUsd), 
+  const { tokenShards, chainLabels } = useMemo(
+    () => buildVoronoiWalletDiagram(walletData, CHAIN_COLORS, walletUsd),
     [walletData, walletUsd]
   );
 
-  const outerChainLogoPointers = useMemo(() => chainLabels.map((l) => {
-    const [ux, uy] = norm(l.x, l.y);
-    return {
-      name: l.name,
-      x1: ux * (RADIUS - 2), y1: uy * (RADIUS - 2),
-      x2: ux * (RADIUS + OUT_LINE_LEN), y2: uy * (RADIUS + OUT_LINE_LEN),
-      x: ux * (RADIUS + OUT_LINE_LEN + OUT_LOGO_GAP) - uy * 8, // slight nudge
-      y: uy * (RADIUS + OUT_LINE_LEN + OUT_LOGO_GAP) + ux * 8,
-      url: CHAIN_LOGOS[l.name],
-    };
-  }), [chainLabels]);
+  // sort logo/label rendering order by polygon size *within each chain*
+  const tokenShardsForDisplay = useMemo(() => {
+    // Keep chain order as it appears in chainLabels (diagram order)
+    const chainOrder = chainLabels.map((c) => c.name);
+
+    const byChain = new Map<string, TokenShard[]>();
+    for (const s of tokenShards) {
+      const arr = byChain.get(s.chainName) ?? [];
+      arr.push(s);
+      byChain.set(s.chainName, arr);
+    }
+
+    const out: TokenShard[] = [];
+    for (const chainName of chainOrder) {
+      const arr = byChain.get(chainName);
+      if (!arr) continue;
+      arr.sort((a, b) => (b.areaAbs ?? 0) - (a.areaAbs ?? 0)); // largest first
+      out.push(...arr);
+    }
+
+    // In case some chain wasn't in chainLabels, append it safely:
+    for (const [chainName, arr] of byChain.entries()) {
+      if (chainOrder.includes(chainName)) continue;
+      arr.sort((a, b) => (b.areaAbs ?? 0) - (a.areaAbs ?? 0));
+      out.push(...arr);
+    }
+
+    return out;
+  }, [tokenShards, chainLabels]);
+
+  const outerChainLogoPointers = useMemo(
+    () =>
+      chainLabels.map((l) => {
+        const [ux, uy] = norm(l.x, l.y);
+        return {
+          name: l.name,
+          x1: ux * (RADIUS - 2),
+          y1: uy * (RADIUS - 2),
+          x2: ux * (RADIUS + OUT_LINE_LEN),
+          y2: uy * (RADIUS + OUT_LINE_LEN),
+          x: ux * (RADIUS + OUT_LINE_LEN + OUT_LOGO_GAP) - uy * 8,
+          y: uy * (RADIUS + OUT_LINE_LEN + OUT_LOGO_GAP) + ux * 8,
+          url: CHAIN_LOGOS[l.name],
+        };
+      }),
+    [chainLabels]
+  );
 
   return (
     <div className="asset-wheel-container">
       <svg viewBox={`-${RADIUS} -${RADIUS} ${RADIUS * 2} ${RADIUS * 2}`} className="asset-wheel-svg">
         <defs>
-          <clipPath id="wheelClip"><circle r={RADIUS - 1.2} /></clipPath>
+          <clipPath id="wheelClip">
+            <circle r={RADIUS - 1.2} />
+          </clipPath>
           <radialGradient id="glassHighlight" cx="13.35%" cy="16.4%" r="57.2%">
             <stop offset="0%" stopColor="rgba(255,255,255,0.10)" />
             <stop offset="100%" stopColor="rgba(255,255,255,0.0)" />
@@ -428,10 +508,20 @@ export const AssetWheel: React.FC<AssetWheelProps> = ({ walletData, walletMeta, 
 
         <g clipPath="url(#wheelClip)">
           <circle r={RADIUS - 0.2} fill="rgba(255,255,255,0.01)" />
-          <circle r={RADIUS - 0.2} fill="url(#glassHighlight)" style={{ mixBlendMode: "plus-lighter" as any }} />
+          <circle
+            r={RADIUS - 0.2}
+            fill="url(#glassHighlight)"
+            style={{ mixBlendMode: "plus-lighter" as any }}
+          />
         </g>
 
-        <circle r={RADIUS - 1.2} fill="none" stroke="rgba(255, 250, 250, 0.47)" strokeWidth="1" pointerEvents="none" />
+        <circle
+          r={RADIUS - 1.2}
+          fill="none"
+          stroke="rgba(255, 250, 250, 0.47)"
+          strokeWidth="1"
+          pointerEvents="none"
+        />
 
         <g>
           {tokenShards.map((s, i) => (
@@ -443,7 +533,10 @@ export const AssetWheel: React.FC<AssetWheelProps> = ({ walletData, walletMeta, 
                 strokeWidth={1}
                 filter="url(#liquidShard)"
                 className="token-path"
-                onClick={(e) => { e.stopPropagation(); onTokenClick(s.chainName, s.label); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTokenClick(s.chainName, s.label);
+                }}
               />
             </g>
           ))}
@@ -452,20 +545,41 @@ export const AssetWheel: React.FC<AssetWheelProps> = ({ walletData, walletMeta, 
         <g pointerEvents="none">
           {outerChainLogoPointers.map((c) => (
             <g key={`chain-pointer-${c.name}`}>
-              <line x1={c.x1} y1={c.y1} x2={c.x2} y2={c.y2} stroke="rgba(255,255,255,0.35)" strokeWidth={1.2} strokeLinecap="round" />
-              <foreignObject x={c.x - CHAIN_LOGO_SIZE / 2} y={c.y - CHAIN_LOGO_SIZE / 2} width={CHAIN_LOGO_SIZE} height={CHAIN_LOGO_SIZE} style={{ overflow: "visible" }}>
+              <line
+                x1={c.x1}
+                y1={c.y1}
+                x2={c.x2}
+                y2={c.y2}
+                stroke="rgba(255,255,255,0.35)"
+                strokeWidth={1.2}
+                strokeLinecap="round"
+              />
+              <foreignObject
+                x={c.x - CHAIN_LOGO_SIZE / 2}
+                y={c.y - CHAIN_LOGO_SIZE / 2}
+                width={CHAIN_LOGO_SIZE}
+                height={CHAIN_LOGO_SIZE}
+                style={{ overflow: "visible" }}
+              >
                 <ChainPointerIcon chainName={c.name} logoUrl={c.url} size={CHAIN_LOGO_SIZE} />
               </foreignObject>
             </g>
           ))}
         </g>
 
-        {tokenShards.map((s, i) => {
+        {/* Use tokenShardsForDisplay so logos/labels are ordered by polygon size within each chain */}
+        {tokenShardsForDisplay.map((s, i) => {
           const usd = walletUsd?.[s.chainName]?.[s.label];
-          // Always show something, even if price is missing
-          const usdText = (typeof usd === "number" && Number.isFinite(usd)) ? fmtUsdCompact(usd) : "$—";
+          const usdText = typeof usd === "number" && Number.isFinite(usd) ? fmtUsdCompact(usd) : "$—";
           return (
-            <foreignObject key={`fo-${i}`} x={s.centroid[0] - 28} y={s.centroid[1] - 33} width={56} height={66} style={{ overflow: "visible", pointerEvents: "none" }}>
+            <foreignObject
+              key={`fo-${s.chainName}-${s.label}-${i}`}
+              x={s.centroid[0] - 28}
+              y={s.centroid[1] - 33}
+              width={56}
+              height={66}
+              style={{ overflow: "visible", pointerEvents: "none" }}
+            >
               <div className="token-display-center">
                 <TokenIcon symbol={s.label} logoUrl={resolveLogoUrl(s.chainName, s.label)} />
                 <div className="sym-text">{s.label}</div>
