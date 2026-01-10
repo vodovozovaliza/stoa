@@ -1087,3 +1087,54 @@ html, body, #root {
   z-index: 100;
   background: transparent;
 }
+
+/* ... your existing App.css stays exactly the same ... */
+
+/* ------------------------------
+   Diagram toggle (Portfolio top-right)
+-------------------------------- */
+.diagram-toggle-wrap {
+  position: absolute;
+  right: 18px;
+  top: 102px; /* sits under the glass account button */
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 18px;
+
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  z-index: 22;
+}
+
+.diagram-toggle {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.diagram-toggle:hover {
+  background: rgba(255, 255, 255, 0.10);
+  transform: translateY(-1px);
+}
+
+.diagram-toggle.active {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.92);
+}

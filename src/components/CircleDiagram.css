@@ -1,0 +1,128 @@
+/* CircleDiagram layout mirrors the AssetWheel container behavior */
+.circle-diagram-container {
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  pointer-events: none; /* let SVG handle interactions */
+}
+
+.circle-diagram-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+
+  filter: drop-shadow(0px 10px 20px rgba(0, 0, 0, 0.35));
+  pointer-events: auto;
+}
+
+/* Circle hover feel similar to shards */
+.cd-circle {
+  opacity: 0.95;
+  transition: opacity 180ms ease, filter 180ms ease, stroke-width 180ms ease;
+}
+
+.cd-node:hover .cd-circle {
+  opacity: 1;
+  filter: brightness(1.25) saturate(1.05);
+}
+
+/* Content inside circles */
+.cd-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.cd-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Logo styling in same spirit as AssetWheel icons */
+.cd-icon-img {
+  display: block;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+  object-fit: contain;
+}
+
+.cd-icon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 250, 250, 0.47);
+  font-weight: 900;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-size: 12px;
+}
+
+.cd-sym {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  line-height: 1;
+}
+
+.cd-amt {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  line-height: 1;
+}
+
+/* Make sure tiny circles stay readable */
+@media (max-width: 420px) {
+  .cd-sym { font-size: 9px; }
+  .cd-amt { font-size: 8px; }
+}
+
+/* Floating feel: subtle depth + hover lift */
+/* Floating feel without rotation */
+.cd-float {
+  transition: filter 180ms ease, transform 180ms ease;
+  filter: drop-shadow(0px 10px 20px rgba(0, 0, 0, 0.22));
+}
+
+.cd-float:hover {
+  transform: translateY(-2px);
+  filter: drop-shadow(0px 14px 26px rgba(0, 0, 0, 0.34));
+}
+
+/* Shadow disk under each circle */
+.cd-shadow {
+  fill: rgba(0, 0, 0, 0.22);
+  transform: translate(0px, 9px) scale(0.95);
+  filter: blur(8px);
+  mix-blend-mode: multiply;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.cd-node:hover .cd-shadow {
+  transform: translate(0px, 12px) scale(0.92);
+  opacity: 0.75;
+}
+
+/* Slightly tighter layout */
+.cd-content {
+  padding: 5px 4px;
+  gap: 2px;
+}

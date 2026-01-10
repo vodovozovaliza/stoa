@@ -13,6 +13,7 @@ import sdk from "@farcaster/frame-sdk";
 import { useSmartAccount } from "./components/providers";
 import { AssetWheel, WalletData, WalletMeta } from "./components/AssetWheel";
 import { ChainHelixView } from "./components/ChainHelixView";
+import { CircleDiagram } from "./components/CircleDiagram";
 import "./App.css";
 
 /** -----------------------------
@@ -49,6 +50,9 @@ const DUMMY_ASSET_MAP: Record<string, string> = {
 
 type ViewMode = "chart" | "helix" | "hub" | "gallery";
 type EnterPhase = "GATE" | "ZOOMING" | "DASHBOARD";
+
+/** Diagram mode toggle (future-proof) */
+type DiagramMode = "wheel" | "alt";
 
 type AssetOption = {
   chain: string;
@@ -152,6 +156,9 @@ export default function App() {
   const [chartBgEnter, setChartBgEnter] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
 
+  /** Diagram toggle state (ready for future replacement) */
+  const [diagramMode, setDiagramMode] = useState<DiagramMode>("wheel");
+
   const accountLabel = farcasterUser?.displayName ? farcasterUser.displayName[0] : "W";
 
   const [selectedChainDetails, setSelectedChainDetails] = useState<{
@@ -204,6 +211,7 @@ export default function App() {
       setViewMode("chart");
       setSelectedChainDetails(null);
       setIsAccountOpen(false);
+      setDiagramMode("wheel"); // reset on logout
       return;
     }
     if (authenticated && enterPhase !== "DASHBOARD" && enterPhase !== "ZOOMING") startEnterZoom();
@@ -601,6 +609,31 @@ export default function App() {
     }, 250);
   };
 
+  const renderDiagram = () => {
+    // For now, both modes call the same AssetWheel (you'll swap later).
+    // When you're ready, replace the "alt" branch with your new diagram component.
+    if (diagramMode === "alt") {
+      return (
+        <CircleDiagram
+          walletData={walletData}
+          walletMeta={walletMeta}
+          walletUsd={walletUsd}
+          onTokenClick={handleTokenClick}
+        />
+      );
+    }
+
+    return (
+      <AssetWheel
+        walletData={walletData}
+        walletMeta={walletMeta}
+        walletUsd={walletUsd}
+        onTokenClick={handleTokenClick}
+        onHubClick={() => setIsSendOpen(true)}
+      />
+    );
+  };
+
   if (!ready) return null;
 
   return (
@@ -655,6 +688,24 @@ export default function App() {
                           <span className="glass-account-letter">{accountLabel}</span>
                         </button>
 
+                        {/* Diagram mode toggle (top-right, under account button) */}
+                        <div className="diagram-toggle-wrap">
+                          <button
+                            className={`diagram-toggle ${diagramMode === "wheel" ? "active" : ""}`}
+                            onClick={() => setDiagramMode("wheel")}
+                            type="button"
+                          >
+                            Wheel
+                          </button>
+                          <button
+                            className={`diagram-toggle ${diagramMode === "alt" ? "active" : ""}`}
+                            onClick={() => setDiagramMode("alt")}
+                            type="button"
+                          >
+                            Circles
+                          </button>
+                        </div>
+
                         {isAccountOpen && (
                           <div className="glass-account-popover">
                             <div className="glass-account-section">
@@ -674,13 +725,7 @@ export default function App() {
                         )}
 
                         <div className="wheel-stage">
-                          <AssetWheel
-                            walletData={walletData}
-                            walletMeta={walletMeta}
-                            walletUsd={walletUsd}
-                            onTokenClick={handleTokenClick}
-                            onHubClick={() => setIsSendOpen(true)}
-                          />
+                          {renderDiagram()}
                         </div>
 
                         <div className="dashboard-actions">
