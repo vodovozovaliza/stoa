@@ -9,7 +9,7 @@ import {
   encodeFunctionData,
 } from "viem";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
-import sdk from "@farcaster/frame-sdk";
+import { sdk } from "@farcaster/miniapp-sdk";
 import { useSmartAccount } from "./components/providers";
 import { AssetWheel, WalletData, WalletMeta } from "./components/AssetWheel";
 import { ChainHelixView } from "./components/ChainHelixView";
@@ -74,9 +74,9 @@ function isHexAddress(value: string): value is `0x${string}` {
 
 // Explicit Mock Data
 const MOCK_DATA_SOURCE: WalletData = {
-  Ethereum: { ETH: 8, USDC: 5, LINK: 3, AAVE: 2 },
-  Solana: { SOL: 7, USDT: 4, JUP: 2 },
-  Arbitrum: { ETH: 4, GMX: 2, USDC: 3 },
+  // Ethereum: { ETH: 8, USDC: 5, LINK: 3, AAVE: 2 },
+  // Solana: { SOL: 7, USDT: 4, JUP: 2 },
+  // Arbitrum: { ETH: 4, GMX: 2, USDC: 3 },
 };
 
 const MOCK_META_SOURCE = {
@@ -167,18 +167,37 @@ export default function App() {
   } | null>(null);
 
   /** -----------------------------
-   * Farcaster context
+   * Farcaster Mini App init (context + ready)
+   * - Uses miniapp-sdk
+   * - Calls ready() once, awaited
+   * - Does not break local dev
    * ----------------------------- */
+  const [miniAppReady, setMiniAppReady] = useState(false);
+
   useEffect(() => {
-    const loadFarcaster = async () => {
+    let cancelled = false;
+
+    const initMiniApp = async () => {
       try {
+        // sdk.context is UX-only; do not trust it for auth
         const context = await sdk.context;
-        if (context?.user) setFarcasterUser(context.user);
+        if (!cancelled && context?.user) setFarcasterUser(context.user);
+
+        // Signal the client that the app is ready (await it)
+        await sdk.actions.ready();
       } catch (e) {
-        console.warn("FC Context error", e);
+        // Not running inside a Farcaster-compatible client (local dev / normal browser)
+        // Keep going without failing the app.
+        console.warn("Mini App SDK init warning:", e);
+      } finally {
+        if (!cancelled) setMiniAppReady(true);
       }
     };
-    loadFarcaster();
+
+    initMiniApp();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /** -----------------------------
@@ -223,7 +242,6 @@ export default function App() {
 
   /** -----------------------------
    * Fetch balances from Blockscout + RPC
-   * (robust parsing restored from old app)
    * ----------------------------- */
   const fetchData = async () => {
     if (allAddresses.length === 0) return;
@@ -271,12 +289,10 @@ export default function App() {
       const fetchPage = async (addr: `0x${string}`, qs: string) => {
         const url = `${cfg.api}/addresses/${addr}/token-balances${qs ? `?${qs}` : ""}`;
         const res = await fetch(url);
-        // Blockscout sometimes returns 404 for empty token list; treat as empty.
         if (!res.ok) return null;
         return res.json();
       };
 
-      // Loop all connected wallets and sum them
       for (const addr of allAddresses) {
         // 1) Native
         const wei = await client.getBalance({ address: addr }).catch(() => 0n);
@@ -426,8 +442,7 @@ export default function App() {
   }, [mainnetTokenList, minatoTokenList]);
 
   /** -----------------------------
-   * USD calculation (only for tokens we can price)
-   * Unpriced tokens still show in the wheel with "$—"
+   * USD calculation
    * ----------------------------- */
   useEffect(() => {
     if (!authenticated || Object.keys(walletData).length === 0) return;
@@ -540,11 +555,14 @@ export default function App() {
   const parsedAmount = Number(sendAmount);
   const amountIsValid = !!selectedAsset && Number.isFinite(parsedAmount) && parsedAmount > 0 && parsedAmount <= sendMax;
 
+  // MVP SAFETY: restrict onchain sends to Minato only
+  const isMinatoAsset = !!selectedAsset?.chainId && selectedAsset.chainId === MINATO_CFG.id;
+
   const canSubmitSend =
     recipientIsValid &&
     amountIsValid &&
     !!selectedAsset &&
-    !!selectedAsset.chainId &&
+    isMinatoAsset &&
     (selectedAsset.isNative ||
       (!!selectedAsset.tokenAddress &&
         /^0x[a-fA-F0-9]{40}$/.test(String(selectedAsset.tokenAddress)) &&
@@ -634,7 +652,9 @@ export default function App() {
     );
   };
 
-  if (!ready) return null;
+  // Don’t render until Privy is ready AND we finished Mini App init attempt.
+  // This prevents "ready()" being fired while the UI is still blank/loading.
+  if (!ready || !miniAppReady) return null;
 
   return (
     <div className="app-viewport">
@@ -774,9 +794,10 @@ export default function App() {
                                 </option>
                               ))}
                             </select>
-                            {!!selectedAsset && !selectedAsset.chainId && (
-                              <div className="field-help" style={{ marginTop: 6, opacity: 0.7, fontSize: 11 }}>
-                                Only Soneium / Minato assets can be sent (mock assets have no chain info).
+
+                            {!!selectedAsset && (!selectedAsset.chainId || selectedAsset.chainId !== MINATO_CFG.id) && (
+                              <div className="field-help" style={{ marginTop: 6, opacity: 0.8, fontSize: 11 }}>
+                                MVP mode: sending is enabled only for Soneium Minato assets.
                               </div>
                             )}
                           </label>
