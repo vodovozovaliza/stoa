@@ -1,4 +1,3 @@
-// src/components/ChainHelixView.tsx
 import React, { useState, useEffect, useRef, useMemo, CSSProperties } from "react";
 import "./ChainHelixView.css";
 import type { WalletMeta } from "./AssetWheel";
@@ -160,7 +159,7 @@ const TokenChart: React.FC<{
   const buildSmoothPath = (pts: { x: number; y: number }[]) => {
     if (pts.length === 1) return `M ${pts[0].x},${pts[0].y}`;
     if (pts.length < 2) return "";
-    
+
     // Start path
     const d: string[] = [];
     d.push(`M ${pts[0].x},${pts[0].y}`);
@@ -190,7 +189,6 @@ const TokenChart: React.FC<{
   }, [points, linePath]);
 
   const gradId = `cardgrad-${symbol}-${range}`;
-  const maskId = `cardmask-${symbol}-${range}`;
 
   const fmtTime = (ts?: number) => {
     if (!ts) return "";
@@ -209,9 +207,7 @@ const TokenChart: React.FC<{
 
     const svgRect = e.currentTarget.getBoundingClientRect();
     const mxPct = ((e.clientX - svgRect.left) / svgRect.width) * 100;
-    const closest = points.reduce((a, b) =>
-      Math.abs(b.x - mxPct) < Math.abs(a.x - mxPct) ? b : a
-    );
+    const closest = points.reduce((a, b) => (Math.abs(b.x - mxPct) < Math.abs(a.x - mxPct) ? b : a));
     setHovered(closest);
 
     const wrapRect = wrapRef.current?.getBoundingClientRect();
@@ -229,12 +225,7 @@ const TokenChart: React.FC<{
     <div className="asset-chart-wrap" ref={wrapRef} onMouseLeave={onLeave}>
       {!loading && points.length > 0 && (
         <div className="asset-chart-hit">
-          <svg
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            className="asset-chart-svg"
-            onMouseMove={onMouseMove}
-          >
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="asset-chart-svg" onMouseMove={onMouseMove}>
             <defs>
               <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="rgba(0, 255, 71, 0.25)" />
@@ -275,9 +266,7 @@ const TokenChart: React.FC<{
           {hovered && hoverPx && (
             <div className="asset-chart-tooltip" style={{ left: hoverPx.x, top: hoverPx.y }}>
               <div className="asset-chart-tooltip-price">{fmtPrice(hovered.price)}</div>
-              {hovered.ts ? (
-                <div className="asset-chart-tooltip-date">{fmtTime(hovered.ts)}</div>
-              ) : null}
+              {hovered.ts ? <div className="asset-chart-tooltip-date">{fmtTime(hovered.ts)}</div> : null}
             </div>
           )}
         </div>
@@ -301,13 +290,7 @@ const TokenChart: React.FC<{
   );
 };
 
-function AssetIcon({
-  symbol,
-  logoUrl,
-}: {
-  symbol: string;
-  logoUrl?: string;
-}) {
+function AssetIcon({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [logoUrl, symbol]);
 
@@ -333,6 +316,7 @@ interface ChainHelixViewProps {
   tokens: Record<string, number>;
   onBack: () => void;
   walletMeta?: WalletMeta;
+  initialSymbol?: string; // ✅ NEW
 }
 
 export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
@@ -340,11 +324,9 @@ export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
   tokens,
   onBack,
   walletMeta,
+  initialSymbol,
 }) => {
-  const tokenList = useMemo(
-    () => Object.entries(tokens).map(([symbol, amount]) => ({ symbol, amount })),
-    [tokens]
-  );
+  const tokenList = useMemo(() => Object.entries(tokens).map(([symbol, amount]) => ({ symbol, amount })), [tokens]);
   const count = tokenList.length;
 
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -378,6 +360,28 @@ export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
       isAutoScrollingRef.current = false;
     }, behavior === "smooth" ? 500 : 50);
   };
+
+  useEffect(() => {
+    if (!initialSymbol) return;
+    if (!tokenList.length) return;
+
+    const idx = tokenList.findIndex((t) => t.symbol === initialSymbol);
+    if (idx < 0) return;
+
+    // Do NOT lock scroll by focusing; just rotate/scroll so it's the front card.
+    setFocusedIndex(null);
+
+    // Wait for layout + scroll depth to be in place.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // instant jump so the helix "opens" on the selected card
+        scrollToIndex(idx, "auto");
+        const p = count <= 1 ? 0 : idx / (count - 1);
+        setScrollProgress(p);
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSymbol, tokenList, count]);
 
   const globalSymbolLogo = useMemo(() => {
     const g: Record<string, string> = {};
@@ -496,15 +500,9 @@ export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
 
   return (
     <div className="helix-viewport" ref={viewportRef}>
-      <div
-        className="helix-background"
-        style={{ backgroundImage: `url(/assets/background.png)` }}
-        aria-hidden
-      />
-      <div
-        className="scroll-depth"
-        style={{ height: `${Math.max(1, count) * SPACING_Y + viewportHeight}px` }}
-      />
+      <div className="helix-background" style={{ backgroundImage: `url(/assets/background.png)` }} aria-hidden />
+      <div className="helix-darken-rect" aria-hidden />
+      <div className="scroll-depth" style={{ height: `${Math.max(1, count) * SPACING_Y + viewportHeight}px` }} />
 
       <div className="fixed-scene-container">
         <img
@@ -555,8 +553,7 @@ export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
               const isFocused = focusedIndex === i;
               const isAnyFocused = focusedIndex !== null;
 
-              const verticalOffset =
-                (i - activeIndexFloat) * SPACING_Y + (visualCenterY - viewportHeight / 2) - 30;
+              const verticalOffset = (i - activeIndexFloat) * SPACING_Y + (visualCenterY - viewportHeight / 2) - 30;
 
               const cardAngle = getRotationForIndex(i);
               const orbitAngle = cardAngle - spindleRotation;
@@ -576,11 +573,7 @@ export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
               const blur = isAnyFocused ? (isFocused ? 0 : 10) : isBehind ? 2 : 0;
 
               const desiredFocusedScale = 1.14;
-              const scale = isFocused
-                ? Math.min(desiredFocusedScale, maxFocusedScale)
-                : isBehind
-                ? 0.94
-                : 1.03;
+              const scale = isFocused ? Math.min(desiredFocusedScale, maxFocusedScale) : isBehind ? 0.94 : 1.03;
 
               const turn = Math.floor((orbitAngle + 180) / 360);
               const localAngle = orbitAngle - turn * 360;
@@ -659,8 +652,7 @@ export const ChainHelixView: React.FC<ChainHelixViewProps> = ({
 
                       <div className="asset-top-right">
                         <div className="asset-amt">
-                          {fmtAmount(token.amount)}{" "}
-                          <span className="asset-amt-sym">{token.symbol}</span>
+                          {fmtAmount(token.amount)} <span className="asset-amt-sym">{token.symbol}</span>
                         </div>
                         <div className="asset-sub">{isFinite(usd) ? fmtUSD(usd) : "$—"}</div>
                       </div>

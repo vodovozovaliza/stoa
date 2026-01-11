@@ -1,4 +1,3 @@
-// App.tsx
 import { useEffect, useMemo, useRef, useState, type CSSProperties, useLayoutEffect } from "react";
 import {
   createPublicClient,
@@ -180,6 +179,7 @@ export default function App() {
   const [selectedChainDetails, setSelectedChainDetails] = useState<{
     name: string;
     tokens: Record<string, number>;
+    selectedSymbol?: string;
   } | null>(null);
 
   /** -----------------------------
@@ -691,9 +691,9 @@ export default function App() {
   /** -----------------------------
    * Wheel interactions
    * ----------------------------- */
-  const handleTokenClick = (chain: string, _tokenSymbol: string) => {
+  const handleTokenClick = (chain: string, tokenSymbol: string) => {
     const tokens = (walletData as any)[chain] || {};
-    setSelectedChainDetails({ name: chain, tokens: tokens as Record<string, number> });
+    setSelectedChainDetails({ name: chain, tokens: tokens as Record<string, number>, selectedSymbol: tokenSymbol });
     setIsAccountOpen(false);
     setIsZooming(true);
     window.setTimeout(() => {
@@ -1033,6 +1033,8 @@ export default function App() {
                 <ChainHelixView
                   chainName={selectedChainDetails.name}
                   tokens={selectedChainDetails.tokens}
+                  walletMeta={walletMeta} 
+                  initialSymbol={selectedChainDetails.selectedSymbol} 
                   onBack={() => {
                     setSelectedChainDetails(null);
                     setViewMode("chart");

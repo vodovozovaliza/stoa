@@ -1,7 +1,8 @@
 /* src/components/ChainHelixView.css */
 
 .helix-viewport {
-  position: absolute;
+  position: fixed;
+  overflow: hidden;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -39,7 +40,7 @@
   pointer-events: none;
   perspective: 1200px;
   transform-style: preserve-3d;
-  z-index: 5;
+  z-index: 2;
 }
 
 /* UI Layer */
@@ -403,4 +404,19 @@
 .asset-focus-close:hover {
   background: rgba(0,0,0,0.5);
   color: #fff;
+}
+
+.helix-darken-rect{
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;    
+  height: 50%;     
+
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(16, 23, 30, 0.6) 100%);
+  backdrop-filter: blur(2px);
+  transform: rotate(180deg);
+
+  z-index: 2;
+  pointer-events: none;
 }
