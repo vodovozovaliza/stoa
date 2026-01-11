@@ -573,6 +573,15 @@ html, body, #root {
   transform: translateY(1px);
 }
 
+.diagram-toggle-hit:active ~ .diagram-toggle-thumb {
+  transform: translateX(0px) scale(0.985);
+}
+
+.diagram-toggle-pill.is-alt .diagram-toggle-hit:active ~ .diagram-toggle-thumb {
+  transform: translateX(74px) scale(0.985);
+}
+
+
 .gate-enter-hint {
   width: 325px;
   height: 50px;
@@ -874,10 +883,13 @@ html, body, #root {
   display: none;
 }
 
-/* Frame 13 (row) */
+/* App.css */
+/* (Your existing CSS remains unchanged except for the tweaks below.) */
+
+/* --- Portfolio header metric sizing fix (so value + % badge don’t clip) --- */
 .portfolio-metrics {
-  width: 161px;
-  height: 23px;
+  width: auto;
+  height: auto;
 
   display: flex;
   flex-direction: row;
@@ -886,10 +898,9 @@ html, body, #root {
   gap: 11px;
 }
 
-/* $1,322.80 */
 .portfolio-value {
-  width: 77px;
-  height: 21px;
+  width: auto;
+  height: auto;
 
   font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
   font-style: normal;
@@ -900,6 +911,41 @@ html, body, #root {
   letter-spacing: -0.03em;
 
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* Green/Red change marker next to balance */
+.portfolio-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+
+  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.portfolio-change.pos {
+  color: rgba(88, 255, 182, 0.95);
+}
+
+.portfolio-change.neg {
+  color: rgba(255, 112, 112, 0.95);
+}
+
+.portfolio-change-arrow {
+  font-size: 10px;
+  line-height: 10px;
+  transform: translateY(-0.5px);
+}
+
+.portfolio-change-pct {
+  letter-spacing: 0.2px;
 }
 
 /* Frame 1 (pill) */
@@ -1093,48 +1139,357 @@ html, body, #root {
 /* ------------------------------
    Diagram toggle (Portfolio top-right)
 -------------------------------- */
-.diagram-toggle-wrap {
-  position: absolute;
-  right: 18px;
-  top: 102px; /* sits under the glass account button */
-  display: inline-flex;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 18px;
+/* ------------------------------
+   Diagram toggle (Liquid glass + toggle-y sliding thumb)
+-------------------------------- */
 
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.diagram-toggle-pill {
+  box-sizing: border-box;
+  position: absolute;
+  width: 120px;
+  height: 46px;
+  right: 25px;
+  top: 111px;
+
+  background: rgba(255, 255, 255, 0.07);
+  background-blend-mode: plus-lighter;
+  box-shadow:
+    inset 0px 0px 0px 0.842181px #999999,
+    inset 0px 0px 18.528px rgba(242, 242, 242, 0.5);
+  backdrop-filter: blur(12.3304px);
+  -webkit-backdrop-filter: blur(12.3304px);
+
+  border-radius: 198.881px;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
 
   z-index: 22;
 }
 
-.diagram-toggle {
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 14px;
-  border: 1px solid transparent;
+/* Sliding “lens” / thumb */
+.diagram-toggle-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 46px;
+  height: 46px;
 
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.07);
+  background-blend-mode: plus-lighter;
+  box-shadow:
+    inset 0px 0px 0px 0.842181px #999999,
+    inset 0px 0px 18.528px rgba(242, 242, 242, 0.5);
+  backdrop-filter: blur(12.3304px);
+  -webkit-backdrop-filter: blur(12.3304px);
 
-  font-family: "SF Pro Display", system-ui, -apple-system, sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: -0.01em;
+  border-radius: 198.881px;
+
+  transform: translateX(74px);
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Slide right by (86 - 46) = 40px when circles is active */
+.diagram-toggle-pill.is-alt .diagram-toggle-thumb {
+  transform: translateX(40px);
+}
+
+/* Click zones */
+.diagram-toggle-hit {
+  position: relative;
+  width: 60px;
+  height: 46px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+
+  display: grid;
+  place-items: center;
+
+  transition: opacity 180ms ease, transform 120ms ease;
+}
+
+.diagram-toggle-hit:active {
+  transform: scale(0.985);
+}
+
+/* inactive side slightly dim */
+.diagram-toggle-pill.is-wheel .diagram-toggle-hit:last-child,
+.diagram-toggle-pill.is-alt .diagram-toggle-hit:first-child {
+  opacity: 0.7;
+}
+
+/* Image styling */
+.diagram-toggle-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none; /* click goes to button */
+}
+
+/* ------------------------------
+   Diagram toggle icons (CSS only)
+-------------------------------- */
+
+.diagram-toggle-icon {
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+/* Active-only visibility */
+.diagram-toggle-icon {
+  transition: opacity 160ms ease, transform 160ms ease;
+  will-change: opacity, transform;
+}
+.diagram-toggle-icon.is-hidden {
+  opacity: 0;
+  transform: scale(0.92);
+}
+.diagram-toggle-icon.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ------- Circles icon (Group 10) ------- */
+
+.circles-ellipse {
+  box-sizing: border-box;
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  left: 0px;
+  top: 0px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 999px;
+}
+
+.circles-dot {
+  box-sizing: border-box;
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 999px;
+}
+
+/* From your spec */
+.circles-dot-1 { width: 12px; height: 12px; left: 5px;  top: 3px; }
+.circles-dot-2 { width: 10px; height: 10px; left: 19px; top: 5px; }
+.circles-dot-3 { width: 8px;  height: 8px;  left: 21px; top: 17px; }
+.circles-dot-4 { width: 8px;  height: 8px;  left: 10px; top: 22px; }
+.circles-dot-5 { width: 9px;  height: 9px;  left: 2px;  top: 15px; }
+.circles-dot-6 { width: 5px;  height: 5px;  left: 11px; top: 15px; }
+.circles-dot-7 { width: 5px;  height: 5px;  left: 16px; top: 13px; }
+.circles-dot-8 { width: 4px;  height: 4px;  left: 16px; top: 19px; }
+
+/* ------- Wheel icon (Group 11) ------- */
+
+.wheel-ellipse {
+  box-sizing: border-box;
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  left: 0px;
+  top: 0px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 999px;
+}
+
+.wheel-line {
+  position: absolute;
+  height: 0px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transform-origin: left center;
+}
+
+/* From your spec */
+.wheel-line-1  { width: 10.2px;  left: 1px;  top: 13px; transform: rotate(-11.31deg); }
+.wheel-line-9  { width: 7.21px;  left: 9px;  top: 2px;  transform: rotate(56.31deg); }
+.wheel-line-4  { width: 6.4px;   left: 3px;  top: 21px; transform: rotate(-38.66deg); }
+.wheel-line-10 { width: 6.4px;   left: 16px; top: 15px; transform: rotate(-38.66deg); }
+.wheel-line-11 { width: 7.28px;  left: 18px; top: 8px;  transform: rotate(74.05deg); }
+.wheel-line-7  { width: 5.83px;  left: 11px; top: 8px;  transform: rotate(-59.04deg); }
+.wheel-line-3  { width: 21.26px; left: 11px; top: 12px; transform: rotate(-131.19deg); }
+.wheel-line-12 { width: 12.37px; left: 20px; top: 14px; transform: rotate(-165.96deg); }
+.wheel-line-8  { width: 17.12px; left: 13px; top: 7px;  transform: rotate(-173.29deg); }
+.wheel-line-5  { width: 8.25px;  left: 6px;  top: 13px; transform: rotate(-104.04deg); }
+.wheel-line-6  { width: 18.79px; left: 7px;  top: 21px; transform: rotate(25.2deg); }
+
+
+/* ==============================
+   Bottom Liquid-Glass Nav Bar
+   (Switch View / Search / Send / Gallery)
+   ============================== */
+
+.bottom-nav {
+  box-sizing: border-box;
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+
+  width: 340px;
+  height: 68px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  /* Use gaps + flex sizing (instead of space-between) for pixel-accurate centering */
+  justify-content: flex-start;
+
+  padding: 5px;
+  gap: 11px;
+
+  border-radius: 33.9173px;
+  z-index: 999;
+  pointer-events: auto;
+}
+
+.bottom-nav-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 33.9173px;
+
+  background: rgba(84, 84, 84, 0.10);
+  border: 0.807554px solid rgba(255, 255, 255, 0.20);
+
+  backdrop-filter: blur(36.3399px);
+  -webkit-backdrop-filter: blur(36.3399px);
+
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.bottom-nav-indicator {
+  box-sizing: border-box;
+  position: absolute;
+  /* left is 0 because JS measures button.offsetLeft which already includes the nav padding */
+  left: 0px;
+  top: 5px;
+  height: calc(100% - 10px);
+
+  /* Fallback width so the thumb is visible on first paint (JS will override precisely). */
+  width: calc((100% - 10px - 33px) / 4);
+
+  border-radius: 37.1475px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, width;
+  z-index: 1;
+}
+
+.bottom-nav-btn {
+  position: relative;
+  flex: 1 1 0;
+  height: calc(100% - 10px);
+
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
 
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  z-index: 2;
+  color: #fff;
+
+  /* prevent flexbox "squish" mismatch between indicator and button widths */
+  min-width: 0;
 }
 
-.diagram-toggle:hover {
-  background: rgba(255, 255, 255, 0.10);
-  transform: translateY(-1px);
+.bottom-nav-btn:active {
+  transform: scale(0.985);
 }
 
-.diagram-toggle.active {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.92);
+.bottom-nav-btn-inner {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.bottom-nav-btn:not(.is-active) {
+  opacity: 0.78;
+}
+
+.bottom-nav-icon {
+  width: 23px;
+  height: 23px;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.bottom-nav-label {
+  font-family: 'SF Pro', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-style: normal;
+  font-weight: 510;
+  font-size: 11.3058px;
+  line-height: 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .bottom-nav {
+    width: calc(100% - 24px);
+  }
+}
+
+
+/* Compact modal variant (used for "Search: in development") */
+.modal-card--compact {
+  width: min(420px, calc(100vw - 32px));
+}
+
+
+
+/* --- Search “in development” widget styling (already present in your file) --- */
+.modal-card--compact {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.dev-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  width: fit-content;
+
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.dev-text {
+  margin-top: 10px;
+  opacity: 0.9;
+  font-size: 14px;
+  line-height: 18px;
 }

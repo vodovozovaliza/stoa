@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+// App.tsx
+import { useEffect, useMemo, useRef, useState, type CSSProperties, useLayoutEffect } from "react";
 import {
   createPublicClient,
   formatEther,
@@ -53,6 +54,8 @@ type EnterPhase = "GATE" | "ZOOMING" | "DASHBOARD";
 
 /** Diagram mode toggle (future-proof) */
 type DiagramMode = "wheel" | "alt";
+
+type BottomNavTab = "view" | "search" | "send" | "gallery";
 
 type AssetOption = {
   chain: string;
@@ -158,6 +161,19 @@ export default function App() {
 
   /** Diagram toggle state (ready for future replacement) */
   const [diagramMode, setDiagramMode] = useState<DiagramMode>("wheel");
+
+  /** Bottom nav state (sliding glass thumb) */
+  const [activeTab, setActiveTab] = useState<BottomNavTab>("view");
+  const lastNonSearchTabRef = useRef<BottomNavTab>("view");
+  const bottomNavRef = useRef<HTMLDivElement | null>(null);
+  const [bottomIndicatorX, setBottomIndicatorX] = useState(0);
+  const [bottomIndicatorW, setBottomIndicatorW] = useState<number | null>(null);
+
+  /** Search placeholder widget */
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  /** Portfolio change marker (green/red) */
+  const [portfolioDeltaPct, setPortfolioDeltaPct] = useState<number | null>(null);
 
   const accountLabel = farcasterUser?.displayName ? farcasterUser.displayName[0] : "W";
 
@@ -505,6 +521,33 @@ export default function App() {
   }, [walletData, authenticated]);
 
   /** -----------------------------
+   * Portfolio change marker (green/red)
+   * - Lightweight: compares against last stored total in localStorage
+   * - Updates the snapshot whenever the computed total changes
+   * ----------------------------- */
+  useEffect(() => {
+    if (!authenticated) return;
+    if (!Number.isFinite(totalBalanceUsd) || totalBalanceUsd <= 0) {
+      setPortfolioDeltaPct(null);
+      return;
+    }
+
+    const key = "stoa_prev_total_usd";
+    const prevRaw = window.localStorage.getItem(key);
+    const prev = prevRaw ? Number(prevRaw) : NaN;
+
+    if (Number.isFinite(prev) && prev > 0) {
+      const pct = ((totalBalanceUsd - prev) / prev) * 100;
+      const safePct = Math.max(-9999, Math.min(9999, pct));
+      setPortfolioDeltaPct(safePct);
+    } else {
+      setPortfolioDeltaPct(null);
+    }
+
+    window.localStorage.setItem(key, String(totalBalanceUsd));
+  }, [totalBalanceUsd, authenticated]);
+
+  /** -----------------------------
    * Available assets for Send dropdown
    * ----------------------------- */
   const availableAssets: AssetOption[] = useMemo(() => {
@@ -540,6 +583,34 @@ export default function App() {
   const [sendRecipient, setSendRecipient] = useState("");
   const [sendAssetKey, setSendAssetKey] = useState("");
   const [sendAmount, setSendAmount] = useState("");
+
+  const closeSendModal = () => {
+    setIsSendOpen(false);
+    // Return the nav thumb to the current page's default.
+    setActiveTab(viewMode === "gallery" ? "gallery" : "view");
+  };
+
+  const closeSearchModal = () => {
+    setIsSearchOpen(false);
+    // Return the nav thumb to whatever tab was active before Search.
+    const back = lastNonSearchTabRef.current;
+    if (back && back !== "search") {
+      setActiveTab(back);
+    } else {
+      setActiveTab(viewMode === "gallery" ? "gallery" : "view");
+    }
+  };
+
+  // Keep bottom nav thumb in sync with the current page.
+  useEffect(() => {
+    if (isSearchOpen) return;
+    if (isSendOpen) {
+      setActiveTab("send");
+      return;
+    }
+    if (viewMode === "gallery") setActiveTab("gallery");
+    else if (viewMode === "chart") setActiveTab("view");
+  }, [viewMode, isSendOpen, isSearchOpen]);
 
   useEffect(() => {
     if (availableAssets.length === 0) return;
@@ -578,38 +649,42 @@ export default function App() {
     try {
       const to = sendRecipient.trim() as `0x${string}`;
 
+      // Build tx: native or erc20 transfer
       if (selectedAsset.isNative) {
-        const hash = await smartAccountClient.sendTransaction({
+        const value = parseEther(sendAmount);
+        await smartAccountClient.sendTransaction({
           to,
-          value: parseEther(sendAmount),
+          value,
+          data: "0x",
         });
-        alert(`Sent! Hash: ${hash}`);
       } else {
-        const tokenAddress = selectedAsset.tokenAddress as `0x${string}`;
         const decimals = selectedAsset.decimals ?? 18;
         const amount = parseUnits(sendAmount, decimals);
-
         const data = encodeFunctionData({
           abi: erc20Abi,
           functionName: "transfer",
           args: [to, amount],
         });
 
-        const hash = await smartAccountClient.sendTransaction({
-          to: tokenAddress,
-          data,
-          value: 0n,
-        });
+        const token = selectedAsset.tokenAddress as `0x${string}`;
+        if (!isHexAddress(token)) {
+          alert("Invalid token address");
+          return;
+        }
 
-        alert(`Sent! Hash: ${hash}`);
+        await smartAccountClient.sendTransaction({
+          to: token,
+          value: 0n,
+          data,
+        });
       }
 
-      setIsSendOpen(false);
-      setSendAmount("");
+      closeSendModal();
       setSendRecipient("");
-      await fetchData();
-    } catch (e: any) {
-      alert(`Send failed: ${e?.message ?? String(e)}`);
+      setSendAmount("");
+    } catch (e) {
+      console.error(e);
+      alert("Send failed (see console).");
     }
   };
 
@@ -628,28 +703,76 @@ export default function App() {
   };
 
   const renderDiagram = () => {
-    // For now, both modes call the same AssetWheel (you'll swap later).
-    // When you're ready, replace the "alt" branch with your new diagram component.
     if (diagramMode === "alt") {
       return (
-        <CircleDiagram
-          walletData={walletData}
-          walletMeta={walletMeta}
-          walletUsd={walletUsd}
-          onTokenClick={handleTokenClick}
-        />
+        <CircleDiagram walletData={walletData} walletMeta={walletMeta} walletUsd={walletUsd} onTokenClick={handleTokenClick} />
       );
     }
 
     return (
-      <AssetWheel
-        walletData={walletData}
-        walletMeta={walletMeta}
-        walletUsd={walletUsd}
-        onTokenClick={handleTokenClick}
-        onHubClick={() => setIsSendOpen(true)}
-      />
+      <AssetWheel walletData={walletData} walletMeta={walletMeta} walletUsd={walletUsd} onTokenClick={handleTokenClick} onHubClick={handleNavSend} />
     );
+  };
+
+  // Keep the bottom-nav thumb perfectly aligned by measuring the active button.
+  // IMPORTANT: include dashboardReady so the first measurement happens as soon as the nav mounts.
+  const measureBottomThumb = () => {
+    const nav = bottomNavRef.current;
+    if (!nav) return;
+
+    const btn = nav.querySelector<HTMLButtonElement>(`button[data-tab="${activeTab}"]`);
+    if (!btn) return;
+
+    const x = btn.offsetLeft;
+    const w = btn.offsetWidth;
+
+    // rAF ensures the browser has committed layout before we animate.
+    requestAnimationFrame(() => {
+      setBottomIndicatorX(x);
+      setBottomIndicatorW(w);
+    });
+  };
+
+  useLayoutEffect(() => {
+    measureBottomThumb();
+  }, [activeTab, viewMode, isSendOpen, dashboardReady]);
+
+  // Re-measure on resize / font load changes.
+  useEffect(() => {
+    const onResize = () => measureBottomThumb();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, dashboardReady]);
+
+  const handleNavSwitchView = () => {
+    // Diagram button behavior:
+    // - If user is NOT on Portfolio (e.g. Gallery), just return to Portfolio.
+    // - Only toggle the diagram mode when already on Portfolio.
+    if (viewMode !== "chart") {
+      setViewMode("chart");
+      setActiveTab("view");
+      return;
+    }
+
+    setDiagramMode((prev) => (prev === "wheel" ? "alt" : "wheel"));
+    setActiveTab("view");
+  };
+
+  const handleNavSearch = () => {
+    if (activeTab !== "search") lastNonSearchTabRef.current = activeTab;
+    setActiveTab("search");
+    setIsSearchOpen(true);
+  };
+
+  const handleNavSend = () => {
+    setActiveTab("send");
+    setIsSendOpen(true);
+  };
+
+  const handleNavGallery = () => {
+    setActiveTab("gallery");
+    setViewMode("gallery");
   };
 
   // Don’t render until Privy is ready AND we finished Mini App init attempt.
@@ -658,14 +781,6 @@ export default function App() {
 
   return (
     <div className="app-viewport">
-      <style>{`
-        .dashboard-actions { position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 16px; z-index: 20; pointer-events: auto; }
-        .action-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; padding: 10px 24px; color: white; font-family: inherit; font-weight: 500; cursor: pointer; backdrop-filter: blur(8px); transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        .action-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
-        .glass-account-section { margin-bottom: 12px; }
-        .glass-account-subtitle { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-      `}</style>
-
       <div className={["app-stage", viewMode, isZooming ? "zooming" : "", dashboardReady ? "gate-open" : ""].join(" ")}>
         <div className={`app-view ${viewMode}${viewMode === "chart" && chartBgEnter ? " chart-bg-enter" : ""}`}>
           {!dashboardReady && (
@@ -680,7 +795,9 @@ export default function App() {
                   <p className="gate-welcome-subtitle">Your On-Chain Identity.</p>
                 </div>
                 {!authenticated ? (
-                  <button className="gate-connect-btn" onClick={login}>Connect wallet</button>
+                  <button className="gate-connect-btn" onClick={login}>
+                    Connect wallet
+                  </button>
                 ) : (
                   <div className="gate-enter-hint">Entering…</div>
                 )}
@@ -698,33 +815,21 @@ export default function App() {
                         <div className="portfolio-header">
                           <h1 className="portfolio-title">{farcasterUser ? `@${farcasterUser.username}` : "Portfolio"}</h1>
                           <div className="portfolio-metrics">
-                            <div className="portfolio-value">
-                              ${totalBalanceUsd.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </div>
+                            <div className="portfolio-value">${totalBalanceUsd.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                            {portfolioDeltaPct !== null && Number.isFinite(portfolioDeltaPct) && (
+                              <div className={"portfolio-change " + (portfolioDeltaPct >= 0 ? "pos" : "neg")} aria-label="Portfolio change">
+                                <span className="portfolio-change-arrow">{portfolioDeltaPct >= 0 ? "▲" : "▼"}</span>
+                                <span className="portfolio-change-pct">
+                                  {Math.abs(portfolioDeltaPct).toLocaleString(undefined, { maximumFractionDigits: 2 })}%
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
                         <button className="glass-account-btn" onClick={() => setIsAccountOpen(!isAccountOpen)}>
                           <span className="glass-account-letter">{accountLabel}</span>
                         </button>
-
-                        {/* Diagram mode toggle (top-right, under account button) */}
-                        <div className="diagram-toggle-wrap">
-                          <button
-                            className={`diagram-toggle ${diagramMode === "wheel" ? "active" : ""}`}
-                            onClick={() => setDiagramMode("wheel")}
-                            type="button"
-                          >
-                            Wheel
-                          </button>
-                          <button
-                            className={`diagram-toggle ${diagramMode === "alt" ? "active" : ""}`}
-                            onClick={() => setDiagramMode("alt")}
-                            type="button"
-                          >
-                            Circles
-                          </button>
-                        </div>
 
                         {isAccountOpen && (
                           <div className="glass-account-popover">
@@ -738,31 +843,117 @@ export default function App() {
                                 {allAddresses.length > 0 ? `${allAddresses.length} Connected` : "None"}
                               </div>
                             </div>
-                            <button className="glass-account-logout" onClick={() => { logout(); setIsAccountOpen(false); }}>
+                            <button
+                              className="glass-account-logout"
+                              onClick={() => {
+                                logout();
+                                setIsAccountOpen(false);
+                              }}
+                            >
                               Log out
                             </button>
                           </div>
                         )}
 
-                        <div className="wheel-stage">
-                          {renderDiagram()}
-                        </div>
-
-                        <div className="dashboard-actions">
-                          <button className="action-btn" onClick={() => setIsSendOpen(true)}>Send</button>
-                          <button className="action-btn" onClick={() => setViewMode("gallery")}>Gallery</button>
-                        </div>
+                        <div className="wheel-stage">{renderDiagram()}</div>
                       </div>
                     </div>
 
                     <div className="dashboard-page gallery-page">
-                      <button className="gallery-back-btn" onClick={() => setViewMode("chart")}>← Back</button>
+                      {/* Back button removed per spec */}
                       <div className="gallery-title">Gallery</div>
                     </div>
                   </div>
 
+                  {/* Bottom liquid-glass nav (Portfolio & Gallery) */}
+                  <div className="bottom-nav" ref={bottomNavRef} aria-label="Bottom navigation">
+                    <div className="bottom-nav-bg" aria-hidden="true" />
+                    <div
+                      className="bottom-nav-indicator"
+                      aria-hidden="true"
+                      style={{
+                        transform: `translateX(${bottomIndicatorX}px)`,
+                        width: bottomIndicatorW ? `${bottomIndicatorW}px` : undefined,
+                      }}
+                    />
+
+                    <button
+                      className={`bottom-nav-btn ${activeTab === "view" ? "is-active" : ""}`}
+                      type="button"
+                      onClick={handleNavSwitchView}
+                      title="Diagram"
+                      data-tab="view"
+                    >
+                      <div className="bottom-nav-btn-inner">
+                        <img
+                          className="bottom-nav-icon"
+                          src={diagramMode === "wheel" ? "/assets/wheel_icon.png" : "/assets/circles_icon.png"}
+                          alt=""
+                          aria-hidden="true"
+                        />
+                        <div className="bottom-nav-label">Portfolio</div>
+                      </div>
+                    </button>
+
+                    <button
+                      className={`bottom-nav-btn ${activeTab === "search" ? "is-active" : ""}`}
+                      type="button"
+                      onClick={handleNavSearch}
+                      title="Search"
+                      data-tab="search"
+                    >
+                      <div className="bottom-nav-btn-inner">
+                        <img className="bottom-nav-icon" src="/assets/search_icon.png" alt="" aria-hidden="true" />
+                        <div className="bottom-nav-label">Search</div>
+                      </div>
+                    </button>
+
+                    <button
+                      className={`bottom-nav-btn ${activeTab === "send" ? "is-active" : ""}`}
+                      type="button"
+                      onClick={handleNavSend}
+                      title="Send"
+                      data-tab="send"
+                    >
+                      <div className="bottom-nav-btn-inner">
+                        <img className="bottom-nav-icon" src="/assets/send_icon.png" alt="" aria-hidden="true" />
+                        <div className="bottom-nav-label">Send</div>
+                      </div>
+                    </button>
+
+                    <button
+                      className={`bottom-nav-btn ${activeTab === "gallery" ? "is-active" : ""}`}
+                      type="button"
+                      onClick={handleNavGallery}
+                      title="Gallery"
+                      data-tab="gallery"
+                    >
+                      <div className="bottom-nav-btn-inner">
+                        <img className="bottom-nav-icon" src="/assets/gallery_icon.png" alt="" aria-hidden="true" />
+                        <div className="bottom-nav-label">Gallery</div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {isSearchOpen && (
+                    <div className="modal-overlay" onClick={closeSearchModal}>
+                      <div className="modal-card modal-card--compact" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                          <div className="modal-title">Search</div>
+                          <button className="modal-close" onClick={closeSearchModal} aria-label="Close">
+                            ×
+                          </button>
+                        </div>
+                        <div className="modal-body">
+                          <div className="dev-chip">In development</div>
+                          <div className="dev-text">Search isn’t implemented yet — it’s coming soon.</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {isSendOpen && (
-                    <div className="modal-overlay" onClick={() => setIsSendOpen(false)}>
+                    <div className="modal-overlay" onClick={closeSendModal}>
                       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-title">Send via Smart Account</div>
 
@@ -797,7 +988,7 @@ export default function App() {
 
                             {!!selectedAsset && (!selectedAsset.chainId || selectedAsset.chainId !== MINATO_CFG.id) && (
                               <div className="field-help" style={{ marginTop: 6, opacity: 0.8, fontSize: 11 }}>
-                                MVP mode: sending is enabled only for Soneium Minato assets.
+                                MVP restriction: only Minato assets are enabled for sending.
                               </div>
                             )}
                           </label>
@@ -806,16 +997,31 @@ export default function App() {
                             <div className="field-label">Amount</div>
                             <input
                               className={`field-input ${sendAmount && !amountIsValid ? "field-error" : ""}`}
-                              placeholder={`Max: ${sendMax.toLocaleString()}`}
+                              placeholder="0.00"
                               value={sendAmount}
                               onChange={(e) => setSendAmount(e.target.value)}
                             />
+                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, opacity: 0.75, fontSize: 11 }}>
+                              <span>Max: {sendMax.toLocaleString()}</span>
+                              <button
+                                type="button"
+                                className="link-btn"
+                                onClick={() => setSendAmount(String(sendMax))}
+                                style={{ fontSize: 11 }}
+                              >
+                                Use max
+                              </button>
+                            </div>
                           </label>
-                        </div>
 
-                        <div className="modal-footer">
-                          <button className="secondary-btn" onClick={() => setIsSendOpen(false)}>Cancel</button>
-                          <button className="primary-btn" onClick={handleSendSubmit} disabled={!canSubmitSend}>Send</button>
+                          <div style={{ display: "flex", gap: 10, marginTop: 8, justifyContent: "flex-end" }}>
+                            <button className="secondary-btn" onClick={closeSendModal}>
+                              Cancel
+                            </button>
+                            <button className="primary-btn" disabled={!canSubmitSend} onClick={handleSendSubmit}>
+                              Send
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -824,14 +1030,14 @@ export default function App() {
               )}
 
               {viewMode === "helix" && selectedChainDetails && (
-                <div className="helix-screen">
-                  <ChainHelixView
-                    chainName={selectedChainDetails.name}
-                    tokens={selectedChainDetails.tokens}
-                    onBack={() => { setViewMode("chart"); setSelectedChainDetails(null); }}
-                    walletMeta={walletMeta}
-                  />
-                </div>
+                <ChainHelixView
+                  chainName={selectedChainDetails.name}
+                  tokens={selectedChainDetails.tokens}
+                  onBack={() => {
+                    setSelectedChainDetails(null);
+                    setViewMode("chart");
+                  }}
+                />
               )}
             </>
           )}
